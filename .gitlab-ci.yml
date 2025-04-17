@@ -1,0 +1,24 @@
+stages:
+  - test
+  - build
+  - deploy
+
+test:
+  stage: test
+  script:
+    - echo "Running tests..."
+
+build_images:
+  stage: build
+  script:
+    - echo "Building Docker images..."
+  only:
+    - main
+    - dev
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying to AWS..."
+  only:
+    - main
