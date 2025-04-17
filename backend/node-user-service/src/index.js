@@ -1,0 +1,40 @@
+const express = require('express');
+const dotenv = require('dotenv');
+const { connectDB } = require('./config/db');
+const { connectRedis } = require('./config/redis');
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/user');
+const invoiceRoutes = require('./routes/invoice');
+const { errorHandler } = require('./middleware/error');
+const logger = require('./utils/logger');
+
+// Load environment variables
+dotenv.config();
+
+// Init Express
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(express.json());
+
+// Connect to database
+connectDB();
+
+// Connect to Redis
+connectRedis();
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/invoices', invoiceRoutes);
+
+// Error handler
+app.use(errorHandler);
+
+// Start server
+app.listen(PORT, () => {
+  logger.info(`Server running on port ${PORT}`);
+});
+
+module.exports = app;
