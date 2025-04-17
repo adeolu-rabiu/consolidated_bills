@@ -4,26 +4,165 @@ on:
   push:
     branches: [ main, dev ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, dev ]
 
 jobs:
-  test:
+  lint-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [php-biller, node-user-service, frontend]
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        if: matrix.service == 'node-user-service' || matrix.service == 'frontend'
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+          cache-dependency-path: backend/${{ matrix.service }}/package-lock.json
+      
+      - name: Setup PHP
+        if: matrix.service == 'php-biller'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mbstring, pdo_mysql
+          coverage: xdebug
+      
+      - name: Install dependencies for Node.js
+        if: matrix.service == 'node-user-service' || matrix.service == 'frontend'
+        working-directory: ${{ matrix.service == 'frontend' && 'frontend' || format('backend/{0}', matrix.service) }}
+        run: npm ci
+      
+      - name: Install dependencies for PHP
+        if: matrix.service == 'php-biller'
+        working-directory: backend/php-biller
+        run: composer install
+      
+      - name: Run linting for Node.js
+        if: matrix.service == 'node-user-service' || matrix.service == 'frontend'
+        working-directory: ${{ matrix.service == 'frontend' && 'frontend' || format('backend/{0}', matrix.service) }}
+        run: npm run lint
+      
       - name: Run tests
-        run: echo "Running tests..."
-        
-  build:
-    needs: test
+        if: matrix.service == 'node-user-service' || matrix.service == 'frontend'
+        working-directory: ${{ matrix.service == 'frontend' && 'frontend' || format('backend/{0}', matrix.service) }}
+        run: npm run test
+      
+      - name: Run PHP tests
+        if: matrix.service == 'php-biller'
+        working-directory: backend/php-biller
+        run: vendor/bin/phpunit
+
+  build-and-push:
+    needs: lint-and-test
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [php-biller, node-user-service, frontend, nginx]
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
-      - name: Build and push Docker images
-        run: echo "Building and pushing Docker images..."
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: consolidated_bills-${{ matrix.service }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          SERVICE_DIR="${{ matrix.service == 'frontend' && 'frontend' || (matrix.service == 'nginx' && 'docker/nginx' || format('backend/{0}', matrix.service)) }}"
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $SERVICE_DIR
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+  deploy-dev:
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+      
+      - name: Terraform Init
+        working-directory: infra/terraform
+        run: terraform init
+      
+      - name: Terraform Plan
+        working-directory: infra/terraform
+        run: terraform plan -var="environment=dev"
+      
+      - name: Terraform Apply
+        working-directory: infra/terraform
+        run: terraform apply -auto-approve -var="environment=dev"
+      
+      - name: Update ECS services
+        run: |
+          aws ecs update-service --cluster consolidated_bills-cluster-dev --service php-biller --force-new-deployment
+          aws ecs update-service --cluster consolidated_bills-cluster-dev --service node-user-service --force-new-deployment
+          aws ecs update-service --cluster consolidated_bills-cluster-dev --service frontend --force-new-deployment
+          aws ecs update-service --cluster consolidated_bills-cluster-dev --service nginx --force-new-deployment
+
+  deploy-prod:
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+      
+      - name: Terraform Init
+        working-directory: infra/terraform
+        run: terraform init
+      
+      - name: Terraform Plan
+        working-directory: infra/terraform
+        run: terraform plan -var="environment=prod"
+      
+      - name: Terraform Apply
+        working-directory: infra/terraform
+        run: terraform apply -auto-approve -var="environment=prod"
+      
+      - name: Update ECS services
+        run: |
+          aws ecs update-service --cluster consolidated_bills-cluster-prod --service php-biller --force-new-deployment
+          aws ecs update-service --cluster consolidated_bills-cluster-prod --service node-user-service --force-new-deployment
+          aws ecs update-service --cluster consolidated_bills-cluster-prod --service frontend --force-new-deployment
+          aws ecs update-service --cluster consolidated_bills-cluster-prod --service nginx --force-new-deployment

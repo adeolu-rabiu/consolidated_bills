@@ -1,24 +1,132 @@
 stages:
   - test
   - build
-  - deploy
+  - deploy_dev
+  - deploy_prod
 
-test:
+variables:
+  AWS_DEFAULT_REGION: eu-west-2
+  ECR_REGISTRY: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+
+# Tests
+.test_template: &test_definition
   stage: test
+  image: ${CI_IMAGE}
   script:
-    - echo "Running tests..."
+    - ${TEST_COMMAND}
 
-build_images:
+test:php-biller:
+  <<: *test_definition
+  variables:
+    CI_IMAGE: php:8.1-cli
+    TEST_COMMAND: |
+      apt-get update && apt-get install -y git unzip
+      curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+      cd backend/php-biller
+      composer install
+      vendor/bin/phpunit
+
+test:node-user-service:
+  <<: *test_definition
+  variables:
+    CI_IMAGE: node:16-alpine
+    TEST_COMMAND: |
+      cd backend/node-user-service
+      npm ci
+      npm run lint
+      npm test
+
+test:frontend:
+  <<: *test_definition
+  variables:
+    CI_IMAGE: node:16-alpine
+    TEST_COMMAND: |
+      cd frontend
+      npm ci
+      npm run lint
+      npm run test:unit
+
+# Build
+.build_template: &build_definition
   stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - apk add --no-cache aws-cli
+    - aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY
   script:
-    - echo "Building Docker images..."
+    - docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$CI_COMMIT_SHA $DOCKERFILE_PATH
+    - docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$CI_COMMIT_SHA $ECR_REGISTRY/$ECR_REPOSITORY:latest
+    - docker push $ECR_REGISTRY/$ECR_REPOSITORY:$CI_COMMIT_SHA
+    - docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
   only:
     - main
     - dev
 
-deploy:
-  stage: deploy
+build:php-biller:
+  <<: *build_definition
+  variables:
+    ECR_REPOSITORY: consolidated_bills-php-biller
+    DOCKERFILE_PATH: backend/php-biller
+
+build:node-user-service:
+  <<: *build_definition
+  variables:
+    ECR_REPOSITORY: consolidated_bills-node-user-service
+    DOCKERFILE_PATH: backend/node-user-service
+
+build:frontend:
+  <<: *build_definition
+  variables:
+    ECR_REPOSITORY: consolidated_bills-frontend
+    DOCKERFILE_PATH: frontend
+
+build:nginx:
+  <<: *build_definition
+  variables:
+    ECR_REPOSITORY: consolidated_bills-nginx
+    DOCKERFILE_PATH: docker/nginx
+
+# Deploy to Development
+deploy_dev:
+  stage: deploy_dev
+  image: hashicorp/terraform:1.0.0
+  variables:
+    TF_VAR_environment: "dev"
+  before_script:
+    - apk add --no-cache aws-cli
+    - cd infra/terraform
   script:
-    - echo "Deploying to AWS..."
+    - terraform init
+    - terraform plan -var="environment=dev"
+    - terraform apply -auto-approve -var="environment=dev"
+    - aws ecs update-service --cluster consolidated_bills-cluster-dev --service php-biller --force-new-deployment
+    - aws ecs update-service --cluster consolidated_bills-cluster-dev --service node-user-service --force-new-deployment
+    - aws ecs update-service --cluster consolidated_bills-cluster-dev --service frontend --force-new-deployment
+    - aws ecs update-service --cluster consolidated_bills-cluster-dev --service nginx --force-new-deployment
+  only:
+    - dev
+
+# Deploy to Production
+deploy_prod:
+  stage: deploy_prod
+  image: hashicorp/terraform:1.0.0
+  variables:
+    TF_VAR_environment: "prod"
+  before_script:
+    - apk add --no-cache aws-cli
+    - cd infra/terraform
+  script:
+    - terraform init
+    - terraform plan -var="environment=prod"
+    - terraform apply -auto-approve -var="environment=prod"
+    - aws ecs update-service --cluster consolidated_bills-cluster-prod --service php-biller --force-new-deployment
+    - aws ecs update-service --cluster consolidated_bills-cluster-prod --service node-user-service --force-new-deployment
+    - aws ecs update-service --cluster consolidated_bills-cluster-prod --service frontend --force-new-deployment
+    - aws ecs update-service --cluster consolidated_bills-cluster-prod --service nginx --force-new-deployment
   only:
     - main
+  when: manual
