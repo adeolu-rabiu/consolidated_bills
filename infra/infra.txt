@@ -1,0 +1,80 @@
+.
+├── cloudformation
+│   └── ecs-service.yaml
+├── docker-compose
+│   ├── alertmanager
+│   │   ├── alertmanager.tmpl.yml
+│   │   ├── alertmanager.yml
+│   │   ├── config
+│   │   │   └── alertmanager.tmpl.yml
+│   │   ├── Dockerfile
+│   │   ├── webhook.py
+│   │   └── whatsapp-webhook.sh
+│   ├── docker
+│   │   └── nginx
+│   │       └── conf.d
+│   ├── docker-compose.core_services.yml
+│   ├── docker-compose.observability.yml
+│   ├── elk
+│   │   ├── filebeat
+│   │   │   └── filebeat.yml
+│   │   └── logstash
+│   │       ├── config
+│   │       │   └── logstash.yml
+│   │       └── pipeline
+│   │           └── logstash.conf
+│   ├── grafana
+│   │   ├── dashboards
+│   │   └── provisioning
+│   │       ├── dashboards
+│   │       └── datasources
+│   ├── observability_logs.txt
+│   ├── prometheus
+│   │   └── prometheus.yml
+│   ├── requirements.txt
+│   ├── run_core.sh
+│   └── run_observability.sh
+├── infra.txt
+├── monitoring
+│   ├── elk
+│   │   ├── filebeat
+│   │   └── logstash
+│   │       └── pipeline
+│   ├── grafana
+│   │   ├── dashboards
+│   │   │   └── main-dashboard.json
+│   │   └── provisioning
+│   │       ├── dashboards
+│   │       │   └── dashboard.yml
+│   │       └── datasources
+│   │           └── datasource.yml
+│   └── prometheus
+│       ├── alert_rules.yml
+│       └── prometheus.yml
+├── serverless
+│   ├── invoice-email-lambda
+│   │   └── index.js
+│   ├── main.tf
+│   ├── pdf-generator-lambda
+│   │   └── index.js
+│   └── sms-notification-lambda
+│       └── index.js
+└── terraform
+    ├── backend.tf
+    ├── bootstrap.sh
+    ├── main.tf
+    └── modules
+        ├── databases
+        ├── ecs
+        │   └── main.tf
+        ├── eks
+        │   └── main.tf
+        ├── main.tf
+        ├── monitoring
+        │   └── main.tf
+        └── vpc
+            ├── main.tf
+            ├── outputs.tf
+            └── variables.tf
+
+41 directories, 37 files

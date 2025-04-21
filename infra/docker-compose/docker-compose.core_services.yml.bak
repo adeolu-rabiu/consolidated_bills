@@ -6,19 +6,21 @@ services:
       context: ../../backend/php-biller
     ports:
       - "9000:9000"
-    restart: unless-stopped
     networks:
       - core
     depends_on:
       - mysql
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/metrics || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   node-user-service:
     build:
       context: ../../backend/node-user-service
     ports:
       - "3001:3000"
-    restart: unless-stopped
-
     networks:
       - core
     depends_on:
@@ -26,26 +28,29 @@ services:
       - mysql
     environment:
       - NODE_ENV=development
-      - DB_HOST=mysql
-      - DB_USER=root
-      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - DB_NAME=${MYSQL_DATABASE}
-      - REDIS_URL=redis://redis:6379
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/metrics || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   frontend:
     build:
       context: ../../frontend
     ports:
       - "5173:5173"
-    restart: unless-stopped
     networks:
       - core
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5173 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   nginx:
     image: nginx:alpine
     ports:
       - "8080:80"
-    restart: unless-stopped
     volumes:
       - ../../docker/nginx/conf.d:/etc/nginx/conf.d
     networks:
@@ -54,12 +59,16 @@ services:
       - frontend
       - node-user-service
       - php-biller
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   redis:
     image: redis:alpine
     ports:
       - "6379:6379"
-    restart: unless-stopped
     networks:
       - core
 
@@ -72,7 +81,6 @@ services:
       - mysql-data:/var/lib/mysql
     ports:
       - "3306:3306"
-    restart: unless-stopped
     networks:
       - core
 

@@ -15,6 +15,7 @@ services:
       - elasticsearch-data:/usr/share/elasticsearch/data
     ports:
       - 9200:9200
+    restart: unless-stopped
     networks:
       - monitoring
     deploy:
@@ -29,6 +30,7 @@ services:
     ports:
       - "5000:5000"
       - "9600:9600"
+    restart: unless-stopped
     environment:
       LS_JAVA_OPTS: "-Xmx512m -Xms512m"
     volumes:
@@ -49,6 +51,7 @@ services:
     container_name: kibana
     ports:
       - 5601:5601
+    restart: unless-stopped
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
     networks:
@@ -87,6 +90,7 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9091:9090"
+    restart: unless-stopped
     networks:
       - monitoring
     deploy:
@@ -100,6 +104,7 @@ services:
     container_name: grafana
     ports:
       - "3002:3000"
+    restart: unless-stopped
     volumes:
       - grafana-storage:/var/lib/grafana
       - ./grafana/dashboards:/var/lib/grafana/dashboards
@@ -119,6 +124,7 @@ services:
     container_name: alertmanager
     ports:
       - "9094:9093"
+    restart: unless-stopped
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
     networks:
@@ -128,14 +134,7 @@ services:
         limits:
           memory: 128M
           cpus: '0.2'
-    networks:
-      - monitoring
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: '0.2'
-
+  
   whatsapp-webhook:
     build:
       context: ./alertmanager
@@ -156,6 +155,7 @@ services:
     container_name: node-exporter
     ports:
       - "9101:9100"
+    restart: unless-stopped
     networks:
       - monitoring
     deploy:
@@ -169,6 +169,7 @@ services:
     container_name: cadvisor
     ports:
       - "8081:8080"
+    restart: unless-stopped
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -187,6 +188,7 @@ services:
     container_name: nginx-exporter
     ports:
       - "9113:9113"
+    restart: unless-stopped
     command: ["-nginx.scrape-uri=http://nginx:80/status"]
     networks:
       - monitoring
