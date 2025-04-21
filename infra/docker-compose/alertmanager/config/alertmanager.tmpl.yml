@@ -1,0 +1,28 @@
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: '${ALERT_EMAIL}'
+  smtp_auth_username: '${ALERT_EMAIL}'
+  smtp_auth_password: '${ALERT_EMAIL_PASSWORD}'
+  resolve_timeout: 5m
+
+route:
+  receiver: email-receiver
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 1h
+  routes:
+    - receiver: whatsapp
+      matchers:
+        - severity="whatsapp"
+
+receivers:
+  - name: email-receiver
+    email_configs:
+      - to: '${ALERT_EMAIL}'
+        send_resolved: true
+
+  - name: whatsapp
+    webhook_configs:
+      - url: 'http://whatsapp-webhook:5001/'
+        send_resolved: true
+

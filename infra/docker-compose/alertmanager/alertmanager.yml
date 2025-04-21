@@ -1,0 +1,28 @@
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'ksentries395@gmail.com'
+  smtp_auth_username: 'ksentries395@gmail.com'
+  smtp_auth_password: 'kxmrnyxreykmvnbp'
+  resolve_timeout: 5m
+
+route:
+  receiver: email-receiver
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 1h
+  routes:
+    - receiver: whatsapp
+      matchers:
+        - severity="whatsapp"
+
+receivers:
+  - name: email-receiver
+    email_configs:
+      - to: 'ksentries395@gmail.com'
+        send_resolved: true
+
+  - name: whatsapp
+    webhook_configs:
+      - url: 'http://whatsapp-webhook:5001/'
+        send_resolved: true
+

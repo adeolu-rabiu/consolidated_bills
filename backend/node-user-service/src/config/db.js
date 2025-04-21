@@ -1,33 +1,21 @@
 const mysql = require('mysql2/promise');
 const logger = require('../utils/logger');
 
-let pool;
-
 const connectDB = async () => {
   try {
-    pool = mysql.createPool({
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0
+    const connection = await mysql.createConnection({
+      host: process.env.DB_HOST || 'mysql',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || 'rootpassword',
+      database: process.env.DB_NAME || 'billing_app'
     });
     
     logger.info('MySQL connected');
-    return pool;
-  } catch (err) {
-    logger.error('MySQL connection error:', err);
-    process.exit(1);
+    return connection;
+  } catch (error) {
+    logger.error(`Database connection error: ${error.message}`);
+    return null; // Don't exit process to allow the application to start
   }
 };
 
-const getDB = () => {
-  if (!pool) {
-    throw new Error('Database not initialized');
-  }
-  return pool;
-};
-
-module.exports = { connectDB, getDB };
+module.exports = { connectDB };

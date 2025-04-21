@@ -1,0 +1,92 @@
+
+
+services:
+  php-biller:
+    build:
+      context: ../../backend/php-biller
+    ports:
+      - "9000:9000"
+    networks:
+      - core
+    depends_on:
+      - mysql
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/metrics || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  node-user-service:
+    build:
+      context: ../../backend/node-user-service
+    ports:
+      - "3001:3000"
+    networks:
+      - core
+    depends_on:
+      - redis
+      - mysql
+    environment:
+      - NODE_ENV=development
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/metrics || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ../../frontend
+    ports:
+      - "5173:5173"
+    networks:
+      - core
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5173 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+    networks:
+      - core
+    depends_on:
+      - frontend
+      - node-user-service
+      - php-biller
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - core
+
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-billing_app}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - core
+
+networks:
+  core:
+    driver: bridge
+
+volumes:
+  mysql-data:

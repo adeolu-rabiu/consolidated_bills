@@ -1,0 +1,12 @@
+.env
+*.log
+__pycache__/
+node_modules/
+.DS_Store
+dist/
+.env.*
+*.env
+frontend/.env
+backend/**/.env
+infra/**/.env
+

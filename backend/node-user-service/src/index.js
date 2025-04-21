@@ -7,6 +7,7 @@ const userRoutes = require('./routes/user');
 const invoiceRoutes = require('./routes/invoice');
 const { errorHandler } = require('./middleware/error');
 const logger = require('./utils/logger');
+const { register } = require('./utils/metrics'); // 🔥 Prometheus metrics import
 
 // Load environment variables
 dotenv.config();
@@ -24,6 +25,12 @@ connectDB();
 // Connect to Redis
 connectRedis();
 
+// Metrics endpoint for Prometheus
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -38,3 +45,4 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
+
