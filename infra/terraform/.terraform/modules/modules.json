@@ -1,0 +1,1 @@
+{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"databases","Source":"./modules/databases","Dir":"modules/databases"},{"Key":"ecs","Source":"./modules/ecs","Dir":"modules/ecs"},{"Key":"eks","Source":"./modules/eks","Dir":"modules/eks"},{"Key":"monitoring","Source":"./modules/monitoring","Dir":"modules/monitoring"},{"Key":"vpc","Source":"./modules/vpc","Dir":"modules/vpc"}]}
