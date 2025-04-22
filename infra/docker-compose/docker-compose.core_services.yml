@@ -1,5 +1,3 @@
-
-
 services:
   php-biller:
     build:
@@ -11,6 +9,12 @@ services:
       - core
     depends_on:
       - mysql
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   node-user-service:
     build:
@@ -18,7 +22,6 @@ services:
     ports:
       - "3001:3000"
     restart: unless-stopped
-
     networks:
       - core
     depends_on:
@@ -31,6 +34,12 @@ services:
       - DB_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - DB_NAME=${MYSQL_DATABASE}
       - REDIS_URL=redis://redis:6379
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   frontend:
     build:
@@ -40,6 +49,12 @@ services:
     restart: unless-stopped
     networks:
       - core
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   nginx:
     image: nginx:alpine
@@ -50,6 +65,7 @@ services:
       - ../../docker/nginx/conf.d:/etc/nginx/conf.d
     networks:
       - core
+      - monitoring
     depends_on:
       - frontend
       - node-user-service
@@ -62,6 +78,12 @@ services:
     restart: unless-stopped
     networks:
       - core
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   mysql:
     image: mysql:8
@@ -75,6 +97,12 @@ services:
     restart: unless-stopped
     networks:
       - core
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 networks:
   core:
@@ -82,3 +110,4 @@ networks:
 
 volumes:
   mysql-data:
+

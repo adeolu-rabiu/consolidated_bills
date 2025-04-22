@@ -39,6 +39,12 @@ app.use('/api/invoices', invoiceRoutes);
 // Error handler
 app.use(errorHandler);
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+
 // Start server
 app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);

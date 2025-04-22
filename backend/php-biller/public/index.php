@@ -27,5 +27,13 @@ $app->get('/metrics', function ($request, $response, $args) {
         ->withStatus(200);
 });
 
+<?php
+if ($_SERVER['REQUEST_URI'] === '/health') {
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'ok']);
+    exit;
+});
+
+
 $app->run();
 
