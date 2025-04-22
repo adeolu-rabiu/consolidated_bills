@@ -18,8 +18,10 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  assetsInclude: ['**/*.JPG'], 
   server: {
     host: '0.0.0.0',
-    port: 5173
+    port: 5173,
+    strictPort: true
   }
 })

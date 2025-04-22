@@ -107,6 +107,8 @@ services:
 networks:
   core:
     driver: bridge
+  monitoring:
+    external: true
 
 volumes:
   mysql-data:
